@@ -1,0 +1,94 @@
+plugins {
+    id 'java'
+    id 'groovy'
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    dependencies {
+        classpath "org.codehaus.gpars:gpars:1.2.1"
+    }
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    // https://mvnrepository.com/artifact/io.cucumber/cucumber-java
+    implementation group: 'io.cucumber', name: 'cucumber-java', version: '7.15.0'
+
+// https://mvnrepository.com/artifact/org.seleniumhq.selenium/selenium-java
+    implementation group: 'org.seleniumhq.selenium', name: 'selenium-java', version: '4.24.0'
+
+// https://mvnrepository.com/artifact/io.github.bonigarcia/webdrivermanager
+    implementation group: 'io.github.bonigarcia', name: 'webdrivermanager', version: '5.9.2'
+
+// https://mvnrepository.com/artifact/net.masterthought/cucumber-reporting
+    implementation group: 'net.masterthought', name: 'cucumber-reporting', version: '3.3.0'
+
+// https://mvnrepository.com/artifact/org.apache.poi/poi
+    implementation group: 'org.apache.poi', name: 'poi', version: '5.2.5'
+// https://mvnrepository.com/artifact/org.apache.poi/poi-ooxml
+    implementation group: 'org.apache.poi', name: 'poi-ooxml', version: '5.2.5'
+
+// https://mvnrepository.com/artifact/org.testng/testng
+    testImplementation group: 'org.testng', name: 'testng', version: '7.5.1'
+
+}
+
+static def getTags(tags) {
+    if (tags.isEmpty()) {
+        return "~@Wip"
+    } else {
+        return tags
+    }
+}
+
+task runInSequence() {
+    doLast {
+        def arglist = ["-p", "pretty", "-p", "json:${reporting.baseDir}/cucumber/cucumber.json", "--glue", "StepDefinition", "-t", getTags("$tags"),
+                       "${project.projectDir}/src/test/resources/Feature"]
+
+        javaexec {
+            ignoreExitValue = false
+            main = "cucumber.api.cli.Main"
+            classpath = sourceSets.test.runtimeClasspath
+            args = arglist
+            systemProperties = [
+                    "env"    : System.getProperty("env"),
+                    "browser": System.getProperty("browser")
+            ]
+        }
+    }
+}
+def runCucumberTests() {
+    def features = fileTree(dir: "${project.projectDir}/src/test/resources/Feature/").include '**/*.feature'
+
+    GParsPool.withPool(2) {
+        features.eachParallel { File file ->
+            javaexec {
+                ignoreExitValue = false
+                main = "cucumber.api.cli.Main"
+                classpath = sourceSets.test.runtimeClasspath
+                args =  ["-p", "pretty", "-p", "json:${reporting.baseDir}/cucumber/cucumber.json", "--glue", "StepDefinition", "-t", getTags("$tags"),
+                         "${project.projectDir}/src/test/resources/Feature"]
+                systemProperties = [
+                        "env"    : System.getProperty("env"),
+                        "browser": System.getProperty("browser")
+                ]
+            }
+        }
+    }
+}
+
+task runInParallel() {
+    doLast {
+        runCucumberTests()
+    }
+}
+
+
+
